@@ -26,6 +26,7 @@ const state = {
     outcomes: [],
   },
   flags: {},
+  voting: { code: null },
 };
 
 const el = {
@@ -34,6 +35,14 @@ const el = {
   aboutDialog: document.getElementById('aboutDialog'),
   openAbout: document.getElementById('openAbout'),
 };
+
+// Optional Supabase client (for live voting)
+let supabaseClient = null;
+try {
+  if (window.SUPABASE_URL && window.SUPABASE_ANON_KEY && window.supabase) {
+    supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+  }
+} catch {}
 
 /* Utils */
 function $(sel, root = document) { return root.querySelector(sel); }
@@ -218,7 +227,7 @@ function buildChoices(node, c) {
 
 function selectChoice(choice, c, btn) {
   // Feedback
-  btn.dataset.show = 'true';
+  if (btn && btn.dataset) btn.dataset.show = 'true';
 
   // Score handling
   const delta = choice.points || 0;
@@ -294,6 +303,11 @@ function renderSidebar(isFinal = false) {
   const btnLog = h('button', { class: 'tab-btn', 'data-tab': 'log', 'aria-selected': 'false', onClick: () => showPanel('log') }, 'Logg');
   const btnMap = h('button', { class: 'tab-btn', 'data-tab': 'map', 'aria-selected': 'false', onClick: () => showPanel('map') }, 'Kart');
   tabs.append(btnStatus, btnKnow, btnLog, btnMap);
+  let btnVote = null;
+  if (supabaseClient && !isFinal) {
+    btnVote = h('button', { class: 'tab-btn', 'data-tab': 'vote', 'aria-selected': 'false', onClick: () => showPanel('vote') }, 'Avstemming');
+    tabs.append(btnVote);
+  }
 
   const panelStatus = h('div', { class: 'panel', id: 'panel-status', 'aria-hidden': 'false' }, [
     sectionPatient(),
@@ -303,8 +317,10 @@ function renderSidebar(isFinal = false) {
   const panelKnowledge = h('div', { class: 'panel', id: 'panel-knowledge', 'aria-hidden': 'true' }, knowledgeContent());
   const panelLog = h('div', { class: 'panel', id: 'panel-log', 'aria-hidden': 'true' }, logContent());
   const panelMap = h('div', { class: 'panel', id: 'panel-map', 'aria-hidden': 'true' }, mapContent());
+  const panelVote = supabaseClient && !isFinal ? h('div', { class: 'panel', id: 'panel-vote', 'aria-hidden': 'true' }, voteContent()) : null;
 
   content.append(tabs, panelStatus, panelKnowledge, panelLog, panelMap);
+  if (panelVote) content.append(panelVote);
   card.append(head, content);
   return card;
 }
@@ -317,6 +333,10 @@ function showPanel(which) {
     btn.setAttribute('aria-selected', String(key === which));
     panel.setAttribute('aria-hidden', String(key !== which));
   });
+  if (which === 'vote') {
+    // Refresh counts when opening the voting panel
+    refreshVoteCounts();
+  }
 }
 
 function sectionPatient() {
@@ -462,6 +482,114 @@ function mapContent() {
     h('div', { class: 'side-section' }, [ h('h3', {}, 'Forgreningskart') ]),
     h('ul', { class: 'list-tight' }, list),
   ];
+}
+
+/* Voting (Supabase) */
+function currentCaseAndNode() {
+  const c = CASES.find(x => x.id === state.currentCaseId);
+  if (!c) return {};
+  return { c, node: c.nodes[state.currentNodeId] };
+}
+
+function genCode(len = 5) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let out = '';
+  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random()*chars.length)];
+  return out;
+}
+
+function voteContent() {
+  const { c, node } = currentCaseAndNode();
+  const wrap = [];
+  wrap.push(h('div', { class: 'side-section' }, [ h('h3', {}, 'Avstemming (beta)') ]));
+
+  // Session controls
+  const code = state.voting.code;
+  const row = h('div', { class: 'row' });
+  const btnStart = h('button', { class: 'btn', onClick: async () => {
+    if (!supabaseClient) return;
+    const newCode = genCode();
+    // Create session (ignore if exists)
+    try {
+      await supabaseClient.from('sessions').insert({ code: newCode });
+    } catch {}
+    state.voting.code = newCode;
+    renderCaseNode();
+  } }, code ? 'Ny sesjonskode' : 'Start sesjon');
+  const codeLabel = h('span', { class: 'pill' }, code ? `Kode: ${code}` : 'Ingen kode');
+  row.append(btnStart, codeLabel);
+  wrap.push(row);
+
+  // Link and QR
+  const info = h('div', { class: 'status' });
+  const qrBox = h('div', { id: 'vote-qr', style: 'margin:8px 0;' });
+  if (code && node) {
+    const voteUrl = new URL('vote.html', location.href);
+    voteUrl.searchParams.set('s', code);
+    voteUrl.searchParams.set('n', state.currentNodeId);
+    info.textContent = `Studentlenke: ${voteUrl.toString()}`;
+    setTimeout(() => {
+      try {
+        qrBox.innerHTML = '';
+        // eslint-disable-next-line no-undef
+        new QRCode(qrBox, { text: voteUrl.toString(), width: 160, height: 160 });
+      } catch {}
+    }, 0);
+  } else {
+    info.textContent = 'Start en sesjon for å få QR/lenke.';
+  }
+  wrap.push(info, qrBox);
+
+  // Counts
+  const countsArea = h('div', { id: 'vote-counts' }, 'Ingen stemmer ennå.');
+  const btnRefresh = h('button', { class: 'btn ghost', onClick: () => refreshVoteCounts() }, 'Oppdater telling');
+  const btnApply = h('button', { class: 'btn', onClick: () => applyMajority() }, 'Bruk flest stemmer');
+  const bar = h('div', { class: 'row' }, [btnRefresh, btnApply]);
+  wrap.push(countsArea, bar);
+
+  return wrap;
+}
+
+async function refreshVoteCounts() {
+  if (!supabaseClient || !state.voting.code || !state.currentNodeId) return;
+  const { data, error } = await supabaseClient
+    .from('votes')
+    .select('choice_idx')
+    .eq('code', state.voting.code)
+    .eq('node_id', state.currentNodeId);
+  const countsEl = $('#vote-counts');
+  if (!countsEl) return;
+  if (error) {
+    countsEl.textContent = 'Feil ved henting av stemmer: ' + error.message;
+    return;
+  }
+  const { node } = currentCaseAndNode();
+  const n = (node?.choices || []).length;
+  const counts = Array.from({ length: n }, () => 0);
+  (data || []).forEach(r => { if (typeof r.choice_idx === 'number' && r.choice_idx < n) counts[r.choice_idx]++; });
+  const list = counts.map((c, i) => `${i + 1}. ${node.choices[i]?.label || '—'} — ${c}`);
+  countsEl.textContent = list.join(' | ');
+}
+
+function applyMajority() {
+  if (!state.currentNodeId) return;
+  const countsEl = $('#vote-counts');
+  if (!countsEl) return;
+  const { node, c } = currentCaseAndNode();
+  if (!node) return;
+  // Parse counts from text (simple) or recompute quickly
+  const n = node.choices.length;
+  const counts = (countsEl.textContent || '').split('|').map(s => parseInt((s.match(/—\s*(\d+)/)||[])[1]||'0', 10));
+  if (!counts.length || counts.length < n) {
+    // fallback recompute
+    refreshVoteCounts().then(() => setTimeout(applyMajority, 200));
+    return;
+  }
+  let bestIdx = 0; let best = -1;
+  counts.forEach((v, i) => { if (v > best) { best = v; bestIdx = i; } });
+  const choice = node.choices[bestIdx];
+  if (!choice) return;
+  selectChoice(choice, c, null);
 }
 
 /* Wire up */

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="no">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stem – MTU case</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-main" style="max-width:720px;margin:0 auto;padding:16px;">
+      <h1>Stem på neste valg</h1>
+      <p id="sessionInfo" class="muted"></p>
+      <section class="card">
+        <div class="card-content">
+          <div id="nodeText" class="status"></div>
+          <div id="choiceList" class="choices" style="margin-top:12px"></div>
+          <div class="actions">
+            <button class="btn ghost" id="clearVote" type="button">Fjern stemme</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="./supabase-config.js"></script>
+    <script>
+      const url = new URL(location.href);
+      const code = (url.searchParams.get('s') || '').toUpperCase();
+      const nodeId = url.searchParams.get('n') || '';
+      const clientIdKey = 'mtu_voter_client_id_v1';
+      let clientId = localStorage.getItem(clientIdKey);
+      if (!clientId) {
+        clientId = crypto.getRandomValues(new Uint32Array(4)).join('-');
+        localStorage.setItem(clientIdKey, clientId);
+      }
+
+      const supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+      document.getElementById('sessionInfo').textContent = code ? `Sesjonskode: ${code}` : 'Mangler sesjonskode (s=...)';
+
+      // Render choices from CASES bundle if present; fallback generic
+      function renderChoices() {
+        const list = document.getElementById('choiceList');
+        list.innerHTML = '';
+        const text = document.getElementById('nodeText');
+        try {
+          if (window.CASES && nodeId) {
+            const c = window.CASES[0];
+            const node = c.nodes[nodeId];
+            text.textContent = node?.text || '';
+            (node?.choices || []).forEach((ch, idx) => {
+              const btn = document.createElement('button');
+              btn.className = 'choice-btn';
+              btn.textContent = `${idx + 1}. ${ch.label}`;
+              btn.addEventListener('click', () => castVote(idx));
+              list.appendChild(btn);
+            });
+            return;
+          }
+        } catch {}
+        text.textContent = 'Velg et alternativ:';
+        ['1','2','3','4'].forEach((lbl, idx) => {
+          const btn = document.createElement('button');
+          btn.className = 'choice-btn';
+          btn.textContent = `${idx + 1}. Valg ${idx + 1}`;
+          btn.addEventListener('click', () => castVote(idx));
+          list.appendChild(btn);
+        });
+      }
+
+      async function castVote(choiceIdx) {
+        if (!code || !nodeId) return alert('Mangler sesjonskode eller node.');
+        const { error } = await supabase
+          .from('votes')
+          .insert({ code, node_id: nodeId, choice_idx: choiceIdx, client_id: clientId });
+        if (error) {
+          alert('Kunne ikke lagre stemme: ' + error.message);
+        } else {
+          alert('Stemme registrert!');
+        }
+      }
+
+      document.getElementById('clearVote').addEventListener('click', async () => {
+        if (!code || !nodeId) return;
+        await supabase.from('votes').delete().eq('code', code).eq('node_id', nodeId).eq('client_id', clientId);
+        alert('Stemme fjernet.');
+      });
+
+      renderChoices();
+    </script>
+    <script src="./cases.js"></script>
+  </body>
+</html>

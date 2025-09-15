@@ -7,6 +7,8 @@ Interaktiv, statisk nettside for undervisning (2 × 45 min) med ett dypt, komple
 - `styles.css` – tema/utseende
 - `script.js` – motor: meny, steg, valg, poeng, status/flags og sidebar
 - `cases.js` – case og branching-struktur (noder med valg, effekter og kompetansemål)
+ - `vote.html` – enkel studentside for live avstemming (Supabase)
+ - `supabase-config.example.js` – malfil; kopier til `supabase-config.js` og fyll inn URL/anon key
 
 ## Slik bruker du
 1. Åpne `index.html` i nettleser (dobbelklikk eller høyreklikk → Åpne med Safari/Chrome).
@@ -37,6 +39,62 @@ python3 -m http.server 8000
 - Aktiver latente konsekvenser med `flags` på valg og `flagRedirects` på senere noder.
 - Bilder kan legges ved i mappen og refereres fra `nodes[].image`.
 - Endre farger/typografi i `styles.css`.
+
+## Live avstemming (valgfritt, Supabase)
+Dette er en enkel, frivillig modul som lar studenter stemme på valg fra egen telefon. Fungerer på GitHub Pages.
+
+1) Opprett prosjekt på supabase.com → kopier Project URL og anon-public key.
+2) Kopier `supabase-config.example.js` til `supabase-config.js` og lim inn dine verdier.
+3) I Supabase SQL editor, kjør dette (oppretter tabeller + RLS):
+
+```sql
+create table if not exists public.sessions (
+	code text primary key,
+	created_at timestamp with time zone default now()
+);
+
+create table if not exists public.votes (
+	id uuid primary key default gen_random_uuid(),
+	code text not null references public.sessions(code) on delete cascade,
+	node_id text not null,
+	choice_idx int not null,
+	client_id text not null,
+	created_at timestamp with time zone default now()
+);
+
+-- Unik stemme per klient per node i en sesjon
+create unique index if not exists votes_unique_per_client_node on public.votes(code, node_id, client_id);
+
+-- Aktiver RLS
+alter table public.sessions enable row level security;
+alter table public.votes enable row level security;
+
+-- RLS: alle kan lese/legge inn stemmer innen en gyldig sesjon
+create policy if not exists select_sessions on public.sessions
+	for select using (true);
+create policy if not exists insert_sessions on public.sessions
+	for insert with check (true);
+
+create policy if not exists select_votes on public.votes
+	for select using (true);
+create policy if not exists insert_votes on public.votes
+	for insert with check (
+		exists (select 1 from public.sessions s where s.code = votes.code)
+	);
+create policy if not exists delete_own_vote on public.votes
+	for delete using (
+		exists (select 1 from public.sessions s where s.code = votes.code)
+	);
+```
+
+4) Gå til appen. I sidebar vises fanen «Avstemming». Klikk «Start sesjon» for å få en kode + QR.
+5) Studentlenke åpner `vote.html`, f.eks.: `/vote.html?s=CODE&n=NODEID`. Student trykker på ønsket valg.
+6) I «Avstemming» klikker du «Oppdater telling» og «Bruk flest stemmer» for å anvende resultatet.
+
+Merk:
+- Modulen er robust uten server, men avhengig av Supabase tilgjengelighet.
+- Konfigurasjonsfilen `supabase-config.js` er ikke sjekket inn – du bruker din lokale.
+- Avstemming kan slås av ved å fjerne Supabase-skriptet i `index.html`.
 
 ## Lisens og kildebruk
 Casene er generiske og uten personsensitive opplysninger. Tilpass med lokale prosedyrer og retningslinjer.
