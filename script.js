@@ -326,12 +326,16 @@ function renderSidebar(isFinal = false) {
 }
 
 function showPanel(which) {
-  ['status','knowledge','log','map'].forEach(key => {
-    const btn = document.querySelector(`.tab-btn[data-tab="${key}"]`);
+  // Toggle all existing tabs/panels dynamically (includes optional 'vote')
+  const tabs = document.querySelectorAll('.tab-btn');
+  tabs.forEach(btn => {
+    const key = btn?.dataset?.tab;
+    if (!key) return;
     const panel = document.getElementById(`panel-${key}`);
-    if (!btn || !panel) return;
-    btn.setAttribute('aria-selected', String(key === which));
-    panel.setAttribute('aria-hidden', String(key !== which));
+    if (panel) {
+      btn.setAttribute('aria-selected', String(key === which));
+      panel.setAttribute('aria-hidden', String(key !== which));
+    }
   });
   if (which === 'vote') {
     // Refresh counts when opening the voting panel
