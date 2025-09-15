@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="no">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Branching-caser i medisinsk teknologi</title>
+    <meta name="description" content="Interaktive caser for operasjonsstue: diatermi, anestesiapparat og laparoskopi." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">🩺</div>
+        <div class="titles">
+          <h1>Branching-caser</h1>
+          <p>Operasjonsstue: diatermi • anestesiapparat • laparoskopi</p>
+        </div>
+      </div>
+      <div class="scoreboard" aria-live="polite">
+        <span>Poeng totalt:</span>
+        <strong id="totalScore">0</strong>
+      </div>
+    </header>
+
+    <main class="app-main" id="app">
+      <!-- Innhold rendres dynamisk av script.js -->
+      <noscript>Aktiver JavaScript for å bruke denne siden.</noscript>
+    </main>
+
+    <footer class="app-footer">
+      <div>
+        <button class="link-btn" id="openAbout" type="button">Om opplegget</button>
+      </div>
+      <div class="muted">Laget for undervisning i spesialsykepleie – klinikkingeniør</div>
+    </footer>
+
+    <dialog id="aboutDialog">
+      <form method="dialog">
+        <h2>Om opplegget</h2>
+        <p>Denne prototypen er laget for å støtte to økter à 45 min. Studentene velger caser og tar valg som endrer historien. Riktige valg gir poeng. Feil valg gir veiledning og læringspunkter.</p>
+        <ul>
+          <li>Start i menyen og velg et case</li>
+          <li>Les scenariet, diskuter i gruppe, gjør et valg</li>
+          <li>Følg konsekvensene og noter læringspunkter</li>
+          <li>Oppsummer i plenum</li>
+        </ul>
+        <menu>
+          <button value="cancel">Lukk</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script src="./cases.js"></script>
+    <script src="./script.js"></script>
+  </body>
+  </html>
