@@ -523,22 +523,33 @@ function voteContent() {
   // Link and QR
   const info = h('div', { class: 'status' });
   const qrBox = h('div', { id: 'vote-qr', style: 'margin:8px 0;' });
+  const copyRow = h('div', { class: 'row' });
   if (code && node) {
     const voteUrl = new URL('vote.html', location.href);
     voteUrl.searchParams.set('s', code);
     voteUrl.searchParams.set('n', state.currentNodeId);
     info.textContent = `Studentlenke: ${voteUrl.toString()}`;
-    setTimeout(() => {
+    // Render QR as an image (no external JS dependency)
+    qrBox.innerHTML = '';
+    const img = new Image();
+    img.width = 160; img.height = 160; img.alt = 'QR for studentlenke';
+    img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(voteUrl.toString());
+    qrBox.appendChild(img);
+    // Copy button
+    const btnCopy = h('button', { class: 'btn ghost', onClick: async () => {
       try {
-        qrBox.innerHTML = '';
-        // eslint-disable-next-line no-undef
-        new QRCode(qrBox, { text: voteUrl.toString(), width: 160, height: 160 });
-      } catch {}
-    }, 0);
+        await navigator.clipboard.writeText(voteUrl.toString());
+        alert('Lenke kopiert til utklippstavlen.');
+      } catch {
+        prompt('Kopier lenken:', voteUrl.toString());
+      }
+    } }, 'Kopier lenke');
+    const btnOpen = h('button', { class: 'btn ghost', onClick: () => window.open(voteUrl.toString(), '_blank') }, 'Åpne lenke');
+    copyRow.append(btnCopy, btnOpen);
   } else {
     info.textContent = 'Start en sesjon for å få QR/lenke.';
   }
-  wrap.push(info, qrBox);
+  wrap.push(info, qrBox, copyRow);
 
   // Counts
   const countsArea = h('div', { id: 'vote-counts' }, 'Ingen stemmer ennå.');
