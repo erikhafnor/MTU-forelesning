@@ -71,15 +71,21 @@ create unique index if not exists votes_unique_per_client_node on public.votes(c
 alter table public.sessions enable row level security;
 alter table public.votes enable row level security;
 
--- RLS: alle kan lese/legge inn stemmer innen en gyldig sesjon
-create policy if not exists select_sessions on public.sessions
+-- RLS: alle kan lese/legge inn stemmer innen en gyldig sesjon (idempotent)
+drop policy if exists select_sessions on public.sessions;
+create policy select_sessions on public.sessions
 	for select using (true);
-create policy if not exists insert_sessions on public.sessions
+
+drop policy if exists insert_sessions on public.sessions;
+create policy insert_sessions on public.sessions
 	for insert with check (true);
 
-create policy if not exists select_votes on public.votes
+drop policy if exists select_votes on public.votes;
+create policy select_votes on public.votes
 	for select using (true);
-create policy if not exists insert_votes on public.votes
+
+drop policy if exists insert_votes on public.votes;
+create policy insert_votes on public.votes
 	for insert with check (
 		exists (select 1 from public.sessions s where s.code = votes.code)
 	);
