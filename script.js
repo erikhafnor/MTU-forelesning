@@ -192,6 +192,9 @@ function renderCaseNode() {
   el.app.replaceChildren(layout);
   render();
 
+  // If a voting session is active, sync current node to session so students don't need a new QR each time
+  pushCurrentNodeToSession();
+
   // Keyboard shortcuts
   document.onkeydown = (e) => {
     if (/^[1-9]$/.test(e.key)) {
@@ -515,7 +518,7 @@ function voteContent() {
     const newCode = genCode();
     // Create session (ignore if exists)
     try {
-      await supabaseClient.from('sessions').insert({ code: newCode });
+  await supabaseClient.from('sessions').insert({ code: newCode, current_node: state.currentNodeId });
     } catch {}
     state.voting.code = newCode;
     renderCaseNode();
@@ -528,10 +531,9 @@ function voteContent() {
   const info = h('div', { class: 'status' });
   const qrBox = h('div', { id: 'vote-qr', style: 'margin:8px 0;' });
   const copyRow = h('div', { class: 'row' });
-  if (code && node) {
+  if (code) {
     const voteUrl = new URL('vote.html', location.href);
     voteUrl.searchParams.set('s', code);
-    voteUrl.searchParams.set('n', state.currentNodeId);
     info.textContent = `Studentlenke: ${voteUrl.toString()}`;
     // Render QR as an image (no external JS dependency)
     qrBox.innerHTML = '';
@@ -582,8 +584,17 @@ async function refreshVoteCounts() {
   const n = (node?.choices || []).length;
   const counts = Array.from({ length: n }, () => 0);
   (data || []).forEach(r => { if (typeof r.choice_idx === 'number' && r.choice_idx < n) counts[r.choice_idx]++; });
-  const list = counts.map((c, i) => `${i + 1}. ${node.choices[i]?.label || '—'} — ${c}`);
-  countsEl.textContent = list.join(' | ');
+  // Render a clearer list with bars
+  const total = counts.reduce((a,b)=>a+b,0) || 1;
+  countsEl.innerHTML = '';
+  counts.forEach((v, i) => {
+    const pct = Math.round((v/total)*100);
+    const row = h('div', { class: 'stack', style: 'margin-bottom:6px;' }, [
+      h('div', { class: 'row' }, [ h('strong', {}, `${i+1}. ${node.choices[i]?.label || '—'}`), h('span', { class: 'pill' }, `${v} (${pct}%)`) ]),
+      h('div', { style: 'height:6px;background:rgba(148,163,184,.3);border-radius:4px;overflow:hidden' }, [ h('div', { style: `width:${pct}%;height:6px;background:#22c55e;` }) ])
+    ]);
+    countsEl.appendChild(row);
+  });
 }
 
 function applyMajority() {
@@ -594,17 +605,29 @@ function applyMajority() {
   if (!node) return;
   // Parse counts from text (simple) or recompute quickly
   const n = node.choices.length;
-  const counts = (countsEl.textContent || '').split('|').map(s => parseInt((s.match(/—\s*(\d+)/)||[])[1]||'0', 10));
-  if (!counts.length || counts.length < n) {
-    // fallback recompute
-    refreshVoteCounts().then(() => setTimeout(applyMajority, 200));
-    return;
-  }
-  let bestIdx = 0; let best = -1;
-  counts.forEach((v, i) => { if (v > best) { best = v; bestIdx = i; } });
-  const choice = node.choices[bestIdx];
-  if (!choice) return;
-  selectChoice(choice, c, null);
+  // Recompute counts fresh to avoid parsing UI
+  // This is synchronous call wrapper
+  (async () => {
+    const { data } = await supabaseClient
+      .from('votes')
+      .select('choice_idx')
+      .eq('code', state.voting.code)
+      .eq('node_id', state.currentNodeId);
+    const counts = Array.from({ length: n }, () => 0);
+    (data || []).forEach(r => { if (typeof r.choice_idx === 'number' && r.choice_idx < n) counts[r.choice_idx]++; });
+    let bestIdx = 0; let best = -1;
+    counts.forEach((v, i) => { if (v > best) { best = v; bestIdx = i; } });
+    const choice = node.choices[bestIdx];
+    if (!choice) return;
+    selectChoice(choice, c, null);
+  })();
+}
+
+async function pushCurrentNodeToSession() {
+  try {
+    if (!supabaseClient || !state.voting.code || !state.currentNodeId) return;
+    await supabaseClient.from('sessions').update({ current_node: state.currentNodeId }).eq('code', state.voting.code);
+  } catch {}
 }
 
 /* Wire up */

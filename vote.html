@@ -23,7 +23,7 @@
     <script>
       const url = new URL(location.href);
       const code = (url.searchParams.get('s') || '').toUpperCase();
-      const nodeId = url.searchParams.get('n') || '';
+  let nodeId = url.searchParams.get('n') || '';
       const clientIdKey = 'mtu_voter_client_id_v1';
       let clientId = localStorage.getItem(clientIdKey);
       if (!clientId) {
@@ -33,15 +33,15 @@
 
       const supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 
-      document.getElementById('sessionInfo').textContent = code ? `Sesjonskode: ${code}` : 'Mangler sesjonskode (s=...)';
+  document.getElementById('sessionInfo').textContent = code ? `Sesjonskode: ${code}` : 'Mangler sesjonskode (s=...)';
 
       // Render choices from CASES bundle if present; fallback generic
-      function renderChoices() {
+    function renderChoices() {
         const list = document.getElementById('choiceList');
         list.innerHTML = '';
         const text = document.getElementById('nodeText');
         try {
-          if (window.CASES && nodeId) {
+      if (window.CASES && nodeId) {
             const c = window.CASES[0];
             const node = c.nodes[nodeId];
             text.textContent = node?.text || '';
@@ -77,7 +77,18 @@
         }
       }
 
+      async function syncNodeFromSession() {
+        if (!code) return;
+        const { data } = await supabase.from('sessions').select('current_node').eq('code', code).maybeSingle();
+        if (data && data.current_node && data.current_node !== nodeId) {
+          nodeId = data.current_node;
+          renderChoices();
+        }
+      }
+
+      // Initial load + periodic refresh of current node
       renderChoices();
+      setInterval(syncNodeFromSession, 2000);
     </script>
     <script src="./cases.js"></script>
   </body>

@@ -52,6 +52,7 @@ Dette er en enkel, frivillig modul som lar studenter stemme på valg fra egen te
 create extension if not exists pgcrypto;
 create table if not exists public.sessions (
 	code text primary key,
+	current_node text,
 	created_at timestamp with time zone default now()
 );
 
@@ -80,6 +81,10 @@ drop policy if exists insert_sessions on public.sessions;
 create policy insert_sessions on public.sessions
 	for insert with check (true);
 
+drop policy if exists update_sessions on public.sessions;
+create policy update_sessions on public.sessions
+	for update using (true) with check (true);
+
 drop policy if exists select_votes on public.votes;
 create policy select_votes on public.votes
 	for select using (true);
@@ -93,7 +98,7 @@ create policy insert_votes on public.votes
 ```
 
 4) Gå til appen. I sidebar vises fanen «Avstemming». Klikk «Start sesjon» for å få en kode + QR.
-5) Studentlenke åpner `vote.html`, f.eks.: `/vote.html?s=CODE&n=NODEID`. Student trykker på ønsket valg.
+5) Studentlenke åpner `vote.html`, f.eks.: `/vote.html?s=CODE`. Studenten trenger ikke ny QR for hvert spørsmål; siden henter gjeldende steg automatisk.
 6) I «Avstemming» klikker du «Oppdater telling» og «Bruk flest stemmer» for å anvende resultatet.
 
 Merk:
