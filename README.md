@@ -48,6 +48,8 @@ Dette er en enkel, frivillig modul som lar studenter stemme på valg fra egen te
 3) I Supabase SQL editor, kjør dette (oppretter tabeller + RLS):
 
 ```sql
+-- Krever pgcrypto for gen_random_uuid (Database > Extensions)
+create extension if not exists pgcrypto;
 create table if not exists public.sessions (
 	code text primary key,
 	created_at timestamp with time zone default now()
@@ -81,10 +83,7 @@ create policy if not exists insert_votes on public.votes
 	for insert with check (
 		exists (select 1 from public.sessions s where s.code = votes.code)
 	);
-create policy if not exists delete_own_vote on public.votes
-	for delete using (
-		exists (select 1 from public.sessions s where s.code = votes.code)
-	);
+-- Endring av stemme skjer via upsert på (code,node_id,client_id)
 ```
 
 4) Gå til appen. I sidebar vises fanen «Avstemming». Klikk «Start sesjon» for å få en kode + QR.
