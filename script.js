@@ -6,6 +6,8 @@ const state = {
   currentCaseId: null,
   currentNodeId: null,
   visited: {}, // caseId -> Set of nodeIds
+  // Simple decision history for pedagogical debrief
+  history: [], // [{ caseId, nodeId, label, points }]
   // Runtime status for sidebar
   status: {
     patient: { hemodynamics: 'stabil', temp: 'normoterm', pain: 'OK', notes: [] },
@@ -133,6 +135,7 @@ function startCase(caseId) {
   state.currentCaseId = caseId;
   state.currentNodeId = c.start;
   state.visited[caseId] = new Set();
+  state.history = [];
   resetStatus();
   renderCaseNode();
 }
@@ -238,6 +241,11 @@ function selectChoice(choice, c, btn) {
   render();
   save();
 
+  // Record decision in history for pedagogical debrief
+  try {
+    state.history.push({ caseId: state.currentCaseId, nodeId: state.currentNodeId, label: choice.label, points: delta });
+  } catch {}
+
   // Apply effects to status/log
   applyEffects(choice);
   // Apply flags (latent consequences)
@@ -258,12 +266,17 @@ function renderEnd(c, choice) {
   const header = h('div', { class: 'card-header' }, [
     h('h2', {}, `Slutt: ${c.title}`),
   ]);
+  // Determine an illustrative ending image based on path/flags/outcomes
+  const endingImg = determineEndingImage(c);
   const finalSummary = summarizeOutcome();
+  const pedagogy = pedagogicalReview();
   const body = h('div', { class: 'card-content' }, [
     h('p', {}, choice.summary || 'Case avsluttet.'),
     choice.learn ? h('div', { class: 'learn' }, choice.learn) : null,
+    endingImg ? h('img', { src: endingImg.src, alt: endingImg.alt || 'Slutt-illustrasjon', style: 'max-width:100%;border-radius:8px;border:1px solid rgba(148,163,184,.2);margin:8px 0;' }) : null,
     h('p', {}, ['Poeng for siste valg: ', h('span', { class: 'inline-score' }, fmtPoints(choice.points || 0))]),
     h('div', { class: 'learn' }, finalSummary),
+    pedagogy ? h('div', { class: 'learn' }, pedagogy) : null,
   ]);
   const nav = h('div', { class: 'actions' }, [
     h('button', { class: 'btn', onClick: () => renderMenu() }, 'Til meny'),
@@ -289,6 +302,7 @@ function resetCase() {
   if (!c) return renderMenu();
   state.currentNodeId = c.start;
   state.visited[c.id] = new Set();
+  state.history = [];
   resetStatus();
   renderCaseNode();
 }
@@ -465,6 +479,105 @@ function summarizeOutcome() {
   parts.push(`Utstyr: strøm ${S.equipment.power}, anestesiapparat ${S.equipment.anesthesia || 'ukjent'}, ESU ${S.equipment.esu}, returplate ${S.equipment.returnPad}, pumper ${S.equipment.pumps}, blodvarmer ${S.equipment.warmer}, monitor ${S.equipment.monitor}, kabler ${S.equipment.cables}, væske ${S.equipment.fluids}.`);
   if (S.outcomes.length) parts.push(`Viktige hendelser: ${S.outcomes.join(' → ')}`);
   if (S.log.length) parts.push(`Logg (siste): ${S.log.slice(-5).join(' | ')}`);
+  return parts.join(' ');
+}
+
+// Select an ending image based on visited nodes, flags, outcomes and log entries
+function determineEndingImage(c) {
+  try {
+    const caseId = c?.id || state.currentCaseId;
+    const visited = state.visited?.[caseId] || new Set();
+    const outcomes = state.status?.outcomes || [];
+    const logStr = (state.status?.log || []).join(' | ');
+
+    // OR case mapping -> images-endings/1-ORA..5-ORE
+    if (caseId === 'or-hendelseskjede') {
+      if (visited.has('skade-overarm')) {
+        return { src: 'images-endings/2-ORB.png', alt: 'OR: brannsår overarm – læringspunkt' };
+      }
+      if (visited.has('postop-tommel')) {
+        return { src: 'images-endings/3-ORC.png', alt: 'OR: alternativ retur via metall – tommel' };
+      }
+      if (visited.has('eskaler') || outcomes.includes('nødstans/varsling')) {
+        return { src: 'images-endings/4-ORD.png', alt: 'OR: nødstans/varsling – trygg re-etablering' };
+      }
+      // Risky/suboptimal signals
+      const risky = (
+        state.flags?.latent_shock ||
+        /Fortsatt|Ignorer/.test(logStr) ||
+        outcomes.includes('unødig risiko')
+      );
+      if (risky) {
+        return { src: 'images-endings/5-ORE.png', alt: 'OR: suboptimal praksis – forbedringspunkter' };
+      }
+      // Default safe ending
+      return { src: 'images-endings/1-ORA.png', alt: 'OR: trygg avslutning etter læring' };
+    }
+
+    // ICU case mapping -> images-endings/6-ICUA..10-ICUE
+    if (caseId === 'icu-respirator-monitor') {
+      if (/Manuell ventilasjon etablert, ventilator byttet/.test(logStr) || outcomes.includes('sikker ventilasjon')) {
+        return { src: 'images-endings/7-ICUB.png', alt: 'ICU: bagging og ventilatorbytte – sikret ventilasjon' };
+      }
+      if (/Humidifier feilrettet/.test(logStr) || visited.has('konstant-peep')) {
+        return { src: 'images-endings/8-ICUC.png', alt: 'ICU: konstant PEEP løst via korrekt humidifier-ruting' };
+      }
+      if (/Reserve-monitor i drift/.test(logStr) || visited.has('monitor-svart') || visited.has('gass-kom')) {
+        return { src: 'images-endings/9-ICUD.png', alt: 'ICU: svart skjerm/gassanalyse håndtert trygt' };
+      }
+      const riskyICU = (state.flags?.peep_offset_ignorert || /Ignorer|restart|uten gassverdi/i.test(logStr));
+      if (riskyICU) {
+        return { src: 'images-endings/10-ICUE.png', alt: 'ICU: suboptimal – ubalanser adresseres i debrief' };
+      }
+      // Default stable after fixes
+      return { src: 'images-endings/6-ICUA.png', alt: 'ICU: stabil drift etter justeringer og kalibrering' };
+    }
+  } catch {}
+  return null;
+}
+
+// Build a brief pedagogical review of the run: what was done well, what to improve, and safer alternatives
+function pedagogicalReview() {
+  if (!state.history.length) return null;
+  // Summarize positives and risks
+  const positives = state.history.filter(d => (d.points || 0) > 0);
+  const negatives = state.history.filter(d => (d.points || 0) < 0);
+  const neutral = state.history.filter(d => (d.points || 0) === 0);
+
+  // For each negative, propose the highest-scoring alternative from the same node
+  const improveItems = negatives.slice(0, 4).map(d => {
+    let alt = null;
+    try {
+      const c = CASES.find(x => x.id === d.caseId);
+      const node = c?.nodes?.[d.nodeId];
+      if (node && Array.isArray(node.choices)) {
+        alt = node.choices.slice().sort((a,b) => (b.points||0)-(a.points||0))[0];
+      }
+    } catch {}
+    const altTxt = alt && (alt.points||0) > (d.points||0) ? ` Vurder heller: “${alt.label}” (${fmtPoints(alt.points||0)}).` : '';
+    return `Risikovalg: “${d.label}” (${fmtPoints(d.points||0)}).${altTxt}`;
+  });
+
+  // Top good moves
+  const goodItems = positives
+    .slice()
+    .sort((a,b) => (b.points||0)-(a.points||0))
+    .slice(0, 4)
+    .map(d => `Godt valg: “${d.label}” (${fmtPoints(d.points||0)}).`);
+
+  // Neutral actions (contextual)
+  const neutralItems = neutral.slice(0, 2).map(d => `Nøytralt valg: “${d.label}”. Vurder behov for tiltak ut fra situasjonen.`);
+
+  const parts = [];
+  if (goodItems.length) parts.push('Det dere gjorde bra: ' + goodItems.join(' '));
+  if (improveItems.length) parts.push('Forbedringsmuligheter: ' + improveItems.join(' '));
+  if (neutralItems.length) parts.push('Observasjoner: ' + neutralItems.join(' '));
+
+  // Flags/outcomes callouts
+  const flagKeys = Object.keys(state.flags||{}).filter(k => state.flags[k]);
+  if (flagKeys.length) parts.push('Latente konsekvenser observert: ' + flagKeys.join(', ') + '.');
+  if (state.status.outcomes?.length) parts.push('Viktige utfall: ' + state.status.outcomes.join(' → ') + '.');
+
   return parts.join(' ');
 }
 
