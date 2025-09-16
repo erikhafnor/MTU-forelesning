@@ -206,4 +206,103 @@ const CASES = [
       },
     },
   },
+  {
+    id: 'icu-respirator-monitor',
+    title: 'ICU nattvakt – respirator og monitor',
+    subtitle: 'Uventet PEEP/triggering • O2-celle • Lekkasjer • Ventilfeil • Monitor svart',
+    domain: 'ICU – Ventilator og overvåking',
+    difficulty: 'Moderat',
+    start: 'innkomst',
+    nodes: {
+      innkomst: {
+        order: 1,
+        text: 'Pasient ankommer intubert på transportventilator. Du skal koble til stasjonær ventilator med fuktvarmer. Teamet er lite og natten er travel. Hva gjør du før overgang?',
+        learn: 'Koble testlunge, kjør autotest/selvtest og 0-kalibrering. Bekreft O2-tilførsel og korrekt slangesett/humidifier-rigging før pasienttilkobling.',
+        competencies: ['Akutt håndtering', 'Teknologi for overvåking'],
+        choices: [
+          { label: 'Testlunge på, kjør autotest/0-kal, bekreft O2-trykk og humidifier-retning', points: +3, goto: 'autotest', effects: { equipment: { monitor: 'OK' }, log: 'Autotest og 0-kal før overgang.' } },
+          { label: 'Koble pasient direkte – juster underveis', points: -2, goto: 'trigger-ustabil', effects: { log: 'Direkte overgang uten test.', flags: { risk_unverified: true } } },
+          { label: 'Bekreft O2 kun ved å se på flasken, dropp autotest', points: -1, goto: 'autotest', effects: { log: 'O2 sjekket visuelt, autotest hoppet over.' } },
+        ],
+      },
+      autotest: {
+        order: 2,
+        text: 'Autotest rapporterer liten lekkasje. PEEP-offset ser ut til å være 4–6 cmH2O selv om du satte 0.',
+        learn: 'Små lekkasjer er ofte i slangesett/humidifier eller expirationsblokk. PEEP-offset håndteres med 0-kalibrering og verifikasjon mot testlunge/manometer.',
+        choices: [
+          { label: 'Utfør 0-kalibrering til atmosfære, verifiser mot manometer/testlunge', points: +2, goto: 'trigger-ustabil', effects: { log: '0-kal utført, PEEP bekreftet.' } },
+          { label: 'Ignorer – “klinisk går det nok bra”', points: -2, goto: 'trigger-ustabil', effects: { log: 'PEEP-offset ignorert.', flags: { peep_offset_ignorert: true } } },
+          { label: 'Sjekk slangesett/humidifier for feilkobling/struping og re-kjør test', points: +2, goto: 'trigger-ustabil', effects: { log: 'Slanger/humidifier kontrollert.' } },
+        ],
+      },
+      'trigger-ustabil': {
+        order: 3,
+        text: 'Etter tilkobling ser du spontan auto-triggering: mange ekstra pust uten pasientinnsats. Alarmbelastning øker.',
+        learn: 'Vanlige årsaker: for følsom trigger, lekkasje, kondens/oscillasjoner, sensor-offset. Tiltak: juster trigger, tøm kondens, leak-kompensasjon, vurder sedasjon etter klinikk.',
+        choices: [
+          { label: 'Reduser trigger-følsomhet, tøm kondens, aktiver lekkasje-kompensasjon', points: +3, goto: 'fio2-avvik', effects: { log: 'Trigger og lekkasje håndtert.' } },
+          { label: 'Øk sedasjon umiddelbart uten teknisk sjekk', points: -1, goto: 'fio2-avvik', effects: { log: 'Sedasjon økt uten teknisk tiltak.' } },
+          { label: 'Bytt krets og gjenta 0-kal', points: +1, goto: 'fio2-avvik', effects: { log: 'Krets byttet, 0-kal på nytt.' } },
+        ],
+        flagRedirects: [ { flag: 'peep_offset_ignorert', goto: 'konstant-peep' } ],
+      },
+      'fio2-avvik': {
+        order: 4,
+        text: 'FiO2 leses lavt og svinger. Klinisk ser metningen OK ut. O2-tilførsel er på 4 bar.',
+        learn: 'O2-celle blir ofte sliten – kalibrer/erstatt. Bekreft ikke bare på klinikk, men reparer årsak.',
+        choices: [
+          { label: 'Kalibrer O2-celle med romluft og 100% O2 – bytt hvis avvik består', points: +3, goto: 'insp-ventil', effects: { log: 'O2-celle kalibrert/byttet.' } },
+          { label: 'Ignorer – “SpO2 er fin”', points: -2, goto: 'insp-ventil', effects: { log: 'FiO2-avvik ignorert.' } },
+          { label: 'Sjekk O2-kilde, slanger og lekkasjer rundt blender/mixer', points: +1, goto: 'insp-ventil', effects: { log: 'Gassvei kontrollert.' } },
+        ],
+      },
+      'insp-ventil': {
+        order: 5,
+        text: 'Plutselig får du høytrykksalarm, lav tidalvolum og ingen inspiratorisk flow. Pasienten strammer thorax.',
+        learn: 'Mistenk ventil/steppermotorfeil eller akutt obstruksjon. Først sikre ventilasjon: bagging. Deretter bytte ventilator og varsle teknisk.',
+        choices: [
+          { label: 'Koble til bag/AMBU og ventiler manuelt, bytt ventilator, varsle MTA', points: +4, goto: 'monitor-svart', effects: { outcome: 'sikker ventilasjon', log: 'Manuell ventilasjon etablert, ventilator byttet.' } },
+          { label: 'Skru ventilator av/på flere ganger i håp om bedring', points: -3, goto: 'monitor-svart', effects: { log: 'Restartet i stedet for å sikre luftvei.' } },
+          { label: 'Fortsett med samme ventilator, øk trykkgrense', points: -3, goto: 'monitor-svart', effects: { log: 'Ignorerte mulig ventilfeil.' } },
+        ],
+      },
+      'konstant-peep': {
+        order: 5.5,
+        text: 'Ventilatoren viser vedvarende PEEP, selv ved forsøk på ekspirasjon. Humidifier-koblinger ser omstokket ut.',
+        learn: 'Feilkoblet fuktvarmer/retur kan gi konstant PEEP og alarm (E03). Korriger kobling og re-test.',
+        choices: [
+          { label: 'Korriger humidifier-retning/koblinger, re-kjør test, verifiser med testlunge', points: +3, goto: 'monitor-svart', effects: { log: 'Humidifier feilrettet.' } },
+          { label: 'Fortsett – “pasienten puster greit”', points: -2, goto: 'monitor-svart', effects: { log: 'Konstant PEEP ignorert.' } },
+        ],
+      },
+      'monitor-svart': {
+        order: 6,
+        text: 'Monitoren ved sengen blir plutselig svart. Du hører fortsatt alarmer svakt fra enheten.',
+        learn: 'Trolig baklys/strøm/ledning. Sikre pasient (ventilasjon/hemodynamikk), bytt skjerm/enhet om nødvendig. Ikke bruk tid på dyp feilsøk i akuttfase.',
+        choices: [
+          { label: 'Sjekk strøm/brightness raskt, bytt til reserve-monitor, behold overvåking', points: +3, goto: 'gass-kom', effects: { log: 'Reserve-monitor i drift.' } },
+          { label: 'Trekk og sett i kabler flere ganger, restart systemet', points: -2, goto: 'gass-kom', effects: { log: 'Unødig restart, risiko for tap av overvåking.' } },
+          { label: 'Ignorer skjerm – “vi klarer oss uten”', points: -2, goto: 'gass-kom', effects: { log: 'Overvåking nedprioritert.' } },
+        ],
+      },
+      'gass-kom': {
+        order: 7,
+        text: 'Gassanalyseren viser “kommunikasjonsfeil”. Vitals er ellers stabile. Kabelen til analysatoren er gammel RS-232.',
+        learn: 'Kommunikasjonsfeil kan være løs kabel eller frys. Hold klinisk overvåkning oppe; reseat kabel/restart modul når det er trygt.',
+        choices: [
+          { label: 'Sikre annen overvåking, reseat kabel, restart kun analysatormodul når det er trygt', points: +2, goto: 'debrief', effects: { log: 'Gassanalyse gjenopprettet uten å miste overvåking.' } },
+          { label: 'Full omstart av hele systemet i akuttfase', points: -2, goto: 'debrief', effects: { log: 'Hel systemrestart i uheldig tidspunkt.' } },
+          { label: 'La det stå – “vi klarer oss uten gassverdi”', points: -1, goto: 'debrief', effects: { log: 'Gassanalyse droppet.' } },
+        ],
+      },
+      debrief: {
+        order: 8,
+        text: 'Nattens hendelser oppsummeres. Hva tar du med deg videre?',
+        learn: 'Testlunge/autotest/0-kal før overgang, håndtere trigger/lekasjer, bytte O2-celle, sikre ventilasjon ved ventilfeil, rask skjerm-bytte, trygg handling ved kommunikasjonsfeil.',
+        choices: [
+          { label: 'Avslutt (læring)', end: true, points: +4, summary: 'Teknisk/klinisk prioritering ivaretatt: autotest og 0-kal, trigger/lekasje håndtert, O2-celle kalibrert, ventilfeil håndtert med bag og bytte, monitor erstattet, gassanalyse håndtert trygt.' },
+        ],
+      },
+    },
+  },
 ];
