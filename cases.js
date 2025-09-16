@@ -25,6 +25,8 @@ const CASES = [
       orthostar: {
         order: 1.5,
         text: 'Kari monterer ORTHOSTAR II: benplater låses med spak (sort kule), hodeplaten skyves inn og skrus. Hun trykker fotpedalen i hodeenden: rødt symbol (låst). “Lås for å kunne justere,” tenker hun. Fjernkontrollen klikkes ut av lader. “0”-knappen settes: et kort lydsignal bekrefter nøytral. Dr. Holm ønsker lett Trendelenburg senere. Hva gjør dere nå?',
+  image: 'images/1.png',
+  alt: 'OR-bord pedal: låst (rødt) vs ulåst (grønt) og fjernkontroll med 0-posisjon; ryddig kabelbane',
         learn: 'Bordet må være låst (rød) for å kunne justeres med fjernkontroll; pedal opp (grønn) for å flytte på hjul. “0” gir nøytral posisjon med lydsignal.',
         competencies: ['Sikker bruk', 'Standarder/prosedyrer'],
         choices: [
@@ -37,6 +39,8 @@ const CASES = [
       induksjon: {
         order: 2,
         text: 'Induksjon med LMA. Pasienten desaturerer. Manuell ventilasjon via Aisys CS2 gir ingen flow. Når du bytter til AMBU, kommer det ventilasjon og metningen stiger.',
+  image: 'images/2.png',
+  alt: 'Anestesiapparat uten flow, APL åpen/FGF opp; sikker manuell ventilasjon med AMBU pågår',
         learn: 'Først sikre ventilasjon (AMBU). Deretter sjekk APL/FGF/ventiler/koblinger/lekasje i apparatkretsen.',
         competencies: ['Akutt håndtering', 'Teknologi for overvåkning'],
         choices: [
@@ -83,6 +87,8 @@ const CASES = [
       'smell-esg': {
         order: 4,
         text: 'Under bruk høres et smell fra ESG-400. Brentlukt. Effekt uteblir. Teamet stopper.',
+  image: 'images/3.png',
+  alt: 'Elektrokirurgisk generator med intern feil: tatt ut av bruk, merket for service; reserve enhet rulles inn',
         learn: 'Ved intern feil: ta ut av bruk umiddelbart, ikke restart i feltet. Sikre pasient/omgivelser og bytt til reserve.',
         choices: [
           { label: 'Koble fra, ta ESG-400 ut av bruk, hent FT10, dokumenter og meld til MTA/leverandør', points: +4, goto: 'ft10-setup', effects: { outcome: 'apparatfeil håndtert', log: 'ESG-400 tatt ut av bruk, FT10 inn.' } },
@@ -94,6 +100,8 @@ const CASES = [
       'monitor-beroring': {
         order: 4.2,
         text: 'Kari kjenner prikking i fingertuppene når hun flytter på en monitorledning. Nora ser et lite glimt ved en skjøtekabel. “Har vi en skadet kabel?” Tenker raskt at pasienten og teamet må beskyttes før videre energibruk.',
+  image: 'images/6.png',
+  alt: 'Skadet strømkabel klemt av hjul og jordfeilbryter relatert risiko; tiltak: bytt kabel/isolér kurs',
         learn: 'Skadet isolasjon kan legge fase mot ledende deler. Tiltak: ta krets ut av drift, bytt kabel/fordeler, verifiser jordfeilbryter og berøringssikkerhet.',
         choices: [
           { label: 'Stans, ta ut mistenkt kurs/kabel, bytt skjøtekabel, re-rut sensitive ledninger – test jordfeilbryter', points: +4, goto: 'ft10-setup', effects: { outcome: 'kabelskade utbedret', log: 'Skadet kabel byttet; jordfeilbryter testet.' } },
@@ -104,6 +112,8 @@ const CASES = [
       jordfeil: {
         order: 4.4,
         text: 'Plutselig går jordfeilbryteren. Aisys mister nett, Nora går umiddelbart over på AMBU. “Dette kunne gått galt,” tenker hun, men pusten er stabil.',
+  image: 'images/6.png',
+  alt: 'Jordfeil (GFCI) utløser; AMBU tas i bruk; defekt kabel/fordeler isoleres og byttes',
         learn: 'Ved GFCI-utløsning: sikr ventilasjon (AMBU), isoler feilkurs og bytt ut mistenkt kabel/fordeler før re-etablering.',
         choices: [
           { label: 'Sikre AMBU, identifiser feilkurs/kabel og bytt før videre drift', points: +3, goto: 'ft10-setup', effects: { equipment: { anesthesia: 'AMBU-ventilasjon' }, outcome: 'jordfeil håndtert', log: 'Feilkurs isolert, bytte utført.' } },
@@ -112,6 +122,8 @@ const CASES = [
       'ft10-setup': {
         order: 5,
         text: 'Valleylab FT10 er rullet inn. Flere porter for mono/bipolar og pedaler. Ny assistent kobler raskt.',
+  image: 'images/4.png',
+  alt: 'Bipolar instrument korrekt koblet til bipolar-port og test i luft; venstre panel viser misplug til monopolar (feil)',
         learn: 'Riktig portmapping og “test i luft” er avgjørende. Feilkobling kan gi uventet aktivering av bipolar uten pedal.',
         choices: [
           { label: 'Stans opp: verifiser porter, test pedal/hånd i luft før bruk', points: +3, goto: 'ft10-aktivering', effects: { log: 'Porter/pedaler verifisert OK.' } },
@@ -150,6 +162,8 @@ const CASES = [
       parkering: {
         order: 7,
         text: 'Kirurgen legger fra seg bipolartang under duk ved overarmen. Irrigasjon pågår og samler seg i feltet.',
+  image: 'images/5.png',
+  alt: 'Utrygg instrumentparkering med væske i feltet vs trygg parkering i isolert holder med synlige spisser',
         learn: 'Aktive instrument skal i isolert holder, spisser synlige. Væske og hudkontakt kan gi strømbane/overslag.',
         choices: [
           { label: 'Bruk isolert holder/silikonmatte, hold spisser synlige og tøm væske fra felt', points: +3, goto: 'irrigasjon', effects: { log: 'Instrument parkert i holder, væske håndtert.' } },
@@ -238,6 +252,8 @@ const CASES = [
       'trigger-ustabil': {
         order: 3,
         text: 'Etter tilkobling ser du spontan auto-triggering: mange ekstra pust uten pasientinnsats. Alarmbelastning øker.',
+  image: 'images/8.png',
+  alt: 'Ventilator-bølgeformer som viser auto-triggering; merknader for kondens, lekkasje-kompensasjon og triggerjustering',
         learn: 'Vanlige årsaker: for følsom trigger, lekkasje, kondens/oscillasjoner, sensor-offset. Tiltak: juster trigger, tøm kondens, leak-kompensasjon, vurder sedasjon etter klinikk.',
         choices: [
           { label: 'Reduser trigger-følsomhet, tøm kondens, aktiver lekkasje-kompensasjon', points: +3, goto: 'fio2-avvik', effects: { log: 'Trigger og lekkasje håndtert.' } },
@@ -249,6 +265,8 @@ const CASES = [
       'fio2-avvik': {
         order: 4,
         text: 'FiO2 leses lavt og svinger. Klinisk ser metningen OK ut. O2-tilførsel er på 4 bar.',
+  image: 'images/9.png',
+  alt: 'O2-sensor kalibrering: romluft 21% og 100% O2; bytte av sliten O2-celle hvis drift vedvarer',
         learn: 'O2-celle blir ofte sliten – kalibrer/erstatt. Bekreft ikke bare på klinikk, men reparer årsak.',
         choices: [
           { label: 'Kalibrer O2-celle med romluft og 100% O2 – bytt hvis avvik består', points: +3, goto: 'insp-ventil', effects: { log: 'O2-celle kalibrert/byttet.' } },
@@ -259,6 +277,8 @@ const CASES = [
       'insp-ventil': {
         order: 5,
         text: 'Plutselig får du høytrykksalarm, lav tidalvolum og ingen inspiratorisk flow. Pasienten strammer thorax.',
+  image: 'images/2.png',
+  alt: 'Akutt svikt i inspiratorisk flow; sikker overgang til manuell ventilasjon (bagging) før bytte av ventilator',
         learn: 'Mistenk ventil/steppermotorfeil eller akutt obstruksjon. Først sikre ventilasjon: bagging. Deretter bytte ventilator og varsle teknisk.',
         choices: [
           { label: 'Koble til bag/AMBU og ventiler manuelt, bytt ventilator, varsle MTA', points: +4, goto: 'monitor-svart', effects: { outcome: 'sikker ventilasjon', log: 'Manuell ventilasjon etablert, ventilator byttet.' } },
@@ -269,6 +289,8 @@ const CASES = [
       'konstant-peep': {
         order: 5.5,
         text: 'Ventilatoren viser vedvarende PEEP, selv ved forsøk på ekspirasjon. Humidifier-koblinger ser omstokket ut.',
+  image: 'images/7.png',
+  alt: 'Humidifier feilretning i ventilatorkrets som gir konstant PEEP; riktig kobling vist i insett; testlunge verifisering',
         learn: 'Feilkoblet fuktvarmer/retur kan gi konstant PEEP og alarm (E03). Korriger kobling og re-test.',
         choices: [
           { label: 'Korriger humidifier-retning/koblinger, re-kjør test, verifiser med testlunge', points: +3, goto: 'monitor-svart', effects: { log: 'Humidifier feilrettet.' } },
@@ -278,6 +300,8 @@ const CASES = [
       'monitor-svart': {
         order: 6,
         text: 'Monitoren ved sengen blir plutselig svart. Du hører fortsatt alarmer svakt fra enheten.',
+  image: 'images/10.png',
+  alt: 'Svart skjerm/baklysfeil: bytte til reserve-monitor; insett viser RS-232-kabel til gassanalyse som reseates',
         learn: 'Trolig baklys/strøm/ledning. Sikre pasient (ventilasjon/hemodynamikk), bytt skjerm/enhet om nødvendig. Ikke bruk tid på dyp feilsøk i akuttfase.',
         choices: [
           { label: 'Sjekk strøm/brightness raskt, bytt til reserve-monitor, behold overvåking', points: +3, goto: 'gass-kom', effects: { log: 'Reserve-monitor i drift.' } },
